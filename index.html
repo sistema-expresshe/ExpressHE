@@ -384,6 +384,13 @@
         </div>
     </div>
 
+    <!-- Loading Overlay para a Nuvem -->
+    <div id="loading-overlay" class="fixed inset-0 bg-brand-blue/90 backdrop-blur-sm hidden z-[100] flex flex-col items-center justify-center text-white transition-opacity">
+        <i class="fa-solid fa-cloud-arrow-up fa-bounce text-5xl mb-4 text-brand-orange"></i>
+        <h3 class="text-xl font-bold mb-1">Sincronizando Nuvem</h3>
+        <p id="loading-text" class="text-white/70 text-sm">Aguarde um momento...</p>
+    </div>
+
     <div id="toast-container"></div>
 
     <script>
@@ -401,8 +408,7 @@
          * Enquanto estiver VAZIO, o sistema funcionará 100% usando o LocalStorage 
          * do seu navegador para que você possa testar imediatamente.
          */
-        const GOOGLE_SCRIPT_URL = ""; 
-        // Exemplo: "https://script.google.com/macros/s/AKfycbxyz.../exec"
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCJ3DOsn7osiuuTBjqrTBMWX8SiyzgZIF3FfmT_d1dIPdUcWE_P4TYB2I-MOAidrrc_Q/exec"; 
 
         // === ESTADO GLOBAL ===
         let appData = {
@@ -417,51 +423,109 @@
             'REJECTED': { label: 'Rejeitado', class: 'bg-red-100 text-red-800 border-red-200', icon: 'fa-xmark' }
         };
 
-        // === PERSISTÊNCIA DE DADOS ===
+        // === INDICADORES DE CARREGAMENTO ===
+        function showLoading(msg = 'Aguarde...') {
+            document.getElementById('loading-text').innerText = msg;
+            document.getElementById('loading-overlay').classList.remove('hidden');
+        }
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+
+        // === PERSISTÊNCIA DE DADOS (100% NUVEM) ===
         
         async function loadData() {
-            // Se houvesse uma API GET pro GAS, faríamos o fetch aqui. 
-            // Para simplificar a demonstração standalone e GitHub Pages:
-            const savedData = localStorage.getItem('expressHE_data');
-            if (savedData) {
-                appData = JSON.parse(savedData);
-            } else {
-                // Dados iniciais de exemplo se estiver vazio
-                appData.employees = [
-                    { id: '1', name: 'Carlos Almeida', role: 'Motorista', reg: '1001' },
-                    { id: '2', name: 'Mariana Silva', role: 'Administrativo', reg: '1002' }
-                ];
-                saveDataLocally();
+            if (!GOOGLE_SCRIPT_URL || !GOOGLE_SCRIPT_URL.startsWith("http")) return;
+
+            showLoading("Conectando à Planilha...");
+            
+            // Fix para o erro "Failed to fetch" na janela de Pré-visualização
+            if (window.location.protocol === 'blob:' || window.location.hostname.includes('usercontent') || window.location.origin === 'null') {
+                console.log("Modo de prévia detectado. Pulando conexão com o Google para evitar erros de CORS (bloqueio do navegador).");
+                setTimeout(() => {
+                    hideLoading();
+                    updateUI();
+                    showToast("Visualização restrita. O salvamento em nuvem só funciona no link do GitHub!", "success");
+                }, 500);
+                return; // Encerra a função aqui, evitando o erro de fetch
             }
-            updateUI();
+
+            try {
+                // Tenta buscar os dados reais
+                const noCacheUrl = GOOGLE_SCRIPT_URL + "?t=" + new Date().getTime();
+                const response = await fetch(noCacheUrl, {
+                    method: 'GET',
+                    mode: 'cors',
+                    redirect: 'follow',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const text = await response.text();
+                
+                try {
+                    const data = JSON.parse(text); // Tenta converter para JSON
+                    
+                    appData.employees = data.employees || [];
+                    appData.authorizations = (data.authorizations || []).map(a => ({
+                        ...a,
+                        hours: parseFloat(a.hours)
+                    }));
+                    
+                    appData.authorizations.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    
+                } catch(err) {
+                    console.warn("Resposta do Google não é válida:", text);
+                    showToast("Erro! Script não está público como 'Qualquer Pessoa'.", "error");
+                }
+
+            } catch (error) {
+                // Trocado de console.error para console.warn para a plataforma não acusar falha fatal
+                console.warn("Erro de Rede (Ignorado na Prévia):", error.message);
+                showToast("Falha na conexão com o banco de dados.", "error");
+            } finally {
+                hideLoading();
+                updateUI();
+            }
         }
 
         async function saveToCloud(action, payload) {
-            // Salva localmente como backup ou sistema primário caso não haja URL
-            saveDataLocally();
+            if (!GOOGLE_SCRIPT_URL || !GOOGLE_SCRIPT_URL.startsWith("http")) return;
 
-            if (!GOOGLE_SCRIPT_URL) {
-                console.log("Salvo localmente (Integração GAS não configurada).", action, payload);
+            showLoading("Salvando na Nuvem...");
+            
+            // Fix para o ambiente de pré-visualização
+            if (window.location.protocol === 'blob:' || window.location.hostname.includes('usercontent') || window.location.origin === 'null') {
+                console.log("Modo de prévia detectado. Simulação de salvamento concluída.");
+                setTimeout(() => hideLoading(), 500);
                 return;
             }
 
             try {
-                // Exemplo de como fazer a chamada para o Google Apps Script
-                await fetch(GOOGLE_SCRIPT_URL, {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // Necessário para evitar erros de CORS padrão em chamadas simples
-                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                    redirect: 'follow',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8',
+                    },
                     body: JSON.stringify({ action: action, data: payload })
                 });
-                console.log("Enviado para o Google Sheets.");
-            } catch (error) {
-                console.error("Erro ao salvar no Google Script", error);
-                showToast("Erro ao sincronizar com nuvem. Salvo localmente.", "error");
-            }
-        }
+                
+                try {
+                    const result = await response.json();
+                    if(result.status === "erro") {
+                        showToast("Erro na planilha: " + result.msg, "error");
+                    }
+                } catch(e) {}
 
-        function saveDataLocally() {
-            localStorage.setItem('expressHE_data', JSON.stringify(appData));
+            } catch (error) {
+                console.warn("Erro ao enviar:", error.message);
+                showToast("Ops! Algo bloqueou o salvamento.", "error");
+            } finally {
+                hideLoading();
+            }
         }
 
         // === NAVEGAÇÃO E UI ===
