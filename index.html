@@ -408,7 +408,7 @@
          * Enquanto estiver VAZIO, o sistema funcionará 100% usando o LocalStorage 
          * do seu navegador para que você possa testar imediatamente.
          */
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCJ3DOsn7osiuuTBjqrTBMWX8SiyzgZIF3FfmT_d1dIPdUcWE_P4TYB2I-MOAidrrc_Q/exec"; 
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQIRbiw1UEYR6VrKW-6AGwcpQ8vIbxBqS-FiwpKdT_YCU0po6EmYiboWUoXv0OX-Zh/exec"; 
 
         // === ESTADO GLOBAL ===
         let appData = {
@@ -439,51 +439,33 @@
 
             showLoading("Conectando à Planilha...");
             
-            // Fix para o erro "Failed to fetch" na janela de Pré-visualização
+            // Fix para o ambiente de pré-visualização
             if (window.location.protocol === 'blob:' || window.location.hostname.includes('usercontent') || window.location.origin === 'null') {
-                console.log("Modo de prévia detectado. Pulando conexão com o Google para evitar erros de CORS (bloqueio do navegador).");
-                setTimeout(() => {
-                    hideLoading();
-                    updateUI();
-                    showToast("Visualização restrita. O salvamento em nuvem só funciona no link do GitHub!", "success");
-                }, 500);
-                return; // Encerra a função aqui, evitando o erro de fetch
+                setTimeout(() => { hideLoading(); updateUI(); }, 500);
+                return;
             }
 
             try {
-                // Tenta buscar os dados reais
-                const noCacheUrl = GOOGLE_SCRIPT_URL + "?t=" + new Date().getTime();
-                const response = await fetch(noCacheUrl, {
-                    method: 'GET',
-                    mode: 'cors',
-                    redirect: 'follow',
-                    headers: {
-                        'Accept': 'application/json'
-                    }
-                });
-                
+                // A requisição GET padrão já cuida do redirecionamento do Google perfeitamente
+                const response = await fetch(GOOGLE_SCRIPT_URL);
                 const text = await response.text();
                 
                 try {
-                    const data = JSON.parse(text); // Tenta converter para JSON
-                    
+                    const data = JSON.parse(text); 
                     appData.employees = data.employees || [];
                     appData.authorizations = (data.authorizations || []).map(a => ({
                         ...a,
                         hours: parseFloat(a.hours)
                     }));
-                    
                     appData.authorizations.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                    
                 } catch(err) {
-                    console.warn("Resposta do Google não é válida:", text);
-                    showToast("Erro! Script não está público como 'Qualquer Pessoa'.", "error");
+                    console.error("O Google não enviou dados válidos:", text);
+                    showToast("Erro! O Google barrou a leitura. Verifique as permissões (Qualquer pessoa).", "error");
                 }
 
             } catch (error) {
-                // Trocado de console.error para console.warn para a plataforma não acusar falha fatal
-                console.warn("Erro de Rede (Ignorado na Prévia):", error.message);
-                showToast("Falha na conexão com o banco de dados.", "error");
+                console.error("Erro de Rede ou CORS:", error);
+                showToast("Bloqueio de Segurança! Refaça a implantação do Apps Script.", "error");
             } finally {
                 hideLoading();
                 updateUI();
@@ -495,34 +477,27 @@
 
             showLoading("Salvando na Nuvem...");
             
-            // Fix para o ambiente de pré-visualização
             if (window.location.protocol === 'blob:' || window.location.hostname.includes('usercontent') || window.location.origin === 'null') {
-                console.log("Modo de prévia detectado. Simulação de salvamento concluída.");
                 setTimeout(() => hideLoading(), 500);
                 return;
             }
 
             try {
+                // Usando text/plain para contornar bloqueios de pré-requisito (CORS preflight) do Google
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'cors',
-                    redirect: 'follow',
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8',
-                    },
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({ action: action, data: payload })
                 });
                 
                 try {
                     const result = await response.json();
-                    if(result.status === "erro") {
-                        showToast("Erro na planilha: " + result.msg, "error");
-                    }
+                    if(result.status === "erro") showToast("Erro na planilha: " + result.msg, "error");
                 } catch(e) {}
 
             } catch (error) {
-                console.warn("Erro ao enviar:", error.message);
-                showToast("Ops! Algo bloqueou o salvamento.", "error");
+                console.error("Erro ao enviar POST:", error);
+                showToast("Bloqueio ao salvar. Verifique se o Script foi atualizado para Nova Versão.", "error");
             } finally {
                 hideLoading();
             }
