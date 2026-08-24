@@ -489,8 +489,8 @@
 
                         // Proteção da Conta Admin Mestre - Se não existir, insere virtualmente
                         if (col === 'system_users') {
-                            if (!window.appData.system_users.find(u => u.username === 'admin')) {
-                                window.appData.system_users.push({ id: 'master', name: 'Admin Mestre', username: 'admin', password: 'admin', role: 'ADMIN' });
+                            if (!window.appData.system_users.find(u => u.id === 'master')) {
+                                window.appData.system_users.push({ id: 'master', name: 'Admin Mestre', username: 'admin', password: 'Express@2026', role: 'ADMIN' });
                             }
                         }
                         
@@ -509,8 +509,11 @@
                 const localData = localStorage.getItem('expressHE_DB');
                 if(localData) {
                     window.appData = JSON.parse(localData);
+                    if (!window.appData.system_users.find(u => u.id === 'master')) {
+                        window.appData.system_users.push({ id: 'master', name: 'Admin Mestre', username: 'admin', password: 'Express@2026', role: 'ADMIN' });
+                    }
                 } else {
-                    window.appData.system_users.push({ id: 'master', name: 'Admin Mestre', username: 'admin', password: 'admin', role: 'ADMIN' });
+                    window.appData.system_users.push({ id: 'master', name: 'Admin Mestre', username: 'admin', password: 'Express@2026', role: 'ADMIN' });
                 }
                 
                 const badge = document.getElementById('cloud-status-badge');
@@ -1065,7 +1068,7 @@
                     <td class="p-4">${u.username}</td>
                     <td class="p-4">${roleBadge}</td>
                     <td class="p-4 text-right">
-                        ${isMaster ? '' : `<button onclick="editAccess('${u.id}')" class="text-blue-500 hover:bg-blue-50 p-2 rounded"><i class="fa-solid fa-pen"></i></button>`}
+                        <button onclick="editAccess('${u.id}')" class="text-blue-500 hover:bg-blue-50 p-2 rounded"><i class="fa-solid fa-pen"></i></button>
                         ${deleteBtn}
                     </td>
                 `;
@@ -1076,6 +1079,7 @@
         window.openAccessModal = function() {
             document.getElementById('access-form').reset();
             document.getElementById('access-id').value = '';
+            document.getElementById('access-role').disabled = false;
             document.getElementById('access-modal-title').textContent = 'Novo Acesso';
             document.getElementById('modal-access').classList.add('active');
         };
@@ -1090,6 +1094,11 @@
                 document.getElementById('access-username').value = u.username;
                 document.getElementById('access-password').value = u.password;
                 document.getElementById('access-role').value = u.role;
+
+                // Proteção para o Admin Mestre não perder a permissão de Gestor
+                if (id === 'master') {
+                    document.getElementById('access-role').disabled = true;
+                }
             }
         };
 
