@@ -51,11 +51,6 @@
                 <p class="text-slate-500 mt-2">Sistema de Autorização de Horas Extras</p>
             </div>
             
-            <div class="flex border-b mb-6">
-                <button onclick="switchLoginTab('lider')" id="tab-lider" class="flex-1 py-2 font-semibold text-brand-orange border-b-2 border-brand-orange">Líder</button>
-                <button onclick="switchLoginTab('gestor')" id="tab-gestor" class="flex-1 py-2 font-semibold text-slate-400 border-b-2 border-transparent">Gestor</button>
-            </div>
-
             <form id="login-form" onsubmit="handleLogin(event)">
                 <div class="mb-4">
                     <label class="block text-sm font-medium mb-1">Usuário</label>
@@ -463,7 +458,6 @@
         };
         
         window.currentUser = null;
-        window.currentLoginType = 'lider';
         window.isCloudActive = false;
         let db = null;
 
@@ -609,30 +603,13 @@
             }
         };
 
-        window.switchLoginTab = function(type) {
-            window.currentLoginType = type;
-            const tabLider = document.getElementById('tab-lider');
-            const tabGestor = document.getElementById('tab-gestor');
-            
-            if (type === 'lider') {
-                tabLider.className = "flex-1 py-2 font-semibold text-brand-orange border-b-2 border-brand-orange";
-                tabGestor.className = "flex-1 py-2 font-semibold text-slate-400 border-b-2 border-transparent";
-            } else {
-                tabGestor.className = "flex-1 py-2 font-semibold text-brand-orange border-b-2 border-brand-orange";
-                tabLider.className = "flex-1 py-2 font-semibold text-slate-400 border-b-2 border-transparent";
-            }
-            document.getElementById('login-error').classList.add('hidden');
-        };
-
         window.handleLogin = function(e) {
             e.preventDefault();
             const user = document.getElementById('login-username').value.trim();
             const pass = document.getElementById('login-password').value;
             
-            const expectedRole = window.currentLoginType === 'lider' ? 'LIDER' : 'ADMIN';
-            
-            // Procura usuário no banco
-            const validUser = window.appData.system_users.find(u => u.username === user && u.password === pass && u.role === expectedRole);
+            // Procura usuário no banco de dados
+            const validUser = window.appData.system_users.find(u => u.username === user && u.password === pass);
 
             if (validUser) {
                 sessionStorage.setItem('expressHE_user', JSON.stringify(validUser));
