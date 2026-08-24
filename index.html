@@ -3,1036 +3,1228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
-    <!-- Configurações para Web App (Celular) -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#0A2540">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="ExpressHE">
+    <title>Controle de Horas Extras</title>
     
-    <title>Sistema de Autorização de Horas Extras</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- Bibliotecas para Exportação Excel e PDF -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            blue: '#0A2540', // Azul escuro corporativo
-                            orange: '#FF6B00', // Laranja vibrante (Express)
-                            orangeHover: '#E56000',
-                            gray: '#F3F4F6'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        
-        /* Ocultar scrollbar mantendo a funcionalidade */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-        /* Toast notification */
-        #toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 50;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+    <style>
+        :root {
+            --brand-blue: #0f172a; /* Azul Marinho Corporativo */
+            --brand-orange: #f97316; /* Laranja Vibrante Corporativo */
         }
-        .toast {
-            min-width: 250px;
-            padding: 16px;
-            border-radius: 8px;
-            color: white;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transform: translateX(100%);
-            animation: slideIn 0.3s forwards;
-        }
-        .toast.success { background-color: #10B981; }
-        .toast.error { background-color: #EF4444; }
-        .toast.fadeOut { animation: fadeOut 0.3s forwards; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .bg-brand-blue { background-color: var(--brand-blue); }
+        .text-brand-blue { color: var(--brand-blue); }
+        .bg-brand-orange { background-color: var(--brand-orange); }
+        .text-brand-orange { color: var(--brand-orange); }
+        .hover-brand-orange:hover { background-color: #ea580c; }
+        .sidebar-item.active { background-color: rgba(255,255,255,0.1); border-left: 4px solid var(--brand-orange); }
+        .modal { display: none; background-color: rgba(0,0,0,0.5); }
+        .modal.active { display: flex; }
         
-        @keyframes slideIn {
-            to { transform: translateX(0); }
+        /* Loading Spinner Customizado */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--brand-orange);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
         }
-        @keyframes fadeOut {
-            to { transform: translateX(100%); opacity: 0; }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-gray-100 flex h-screen overflow-hidden text-gray-800">
+<body class="text-slate-800 h-screen overflow-hidden flex flex-col md:flex-row">
 
-    <!-- Sidebar -->
-    <aside class="w-20 md:w-64 bg-brand-blue text-white flex flex-col transition-all duration-300 shadow-xl z-20">
-        <div class="h-16 flex items-center justify-center md:justify-start md:px-6 border-b border-white/10">
-            <i class="fa-solid fa-truck-fast text-brand-orange text-2xl"></i>
-            <span class="ml-3 font-bold text-lg hidden md:block tracking-wide">Express<span class="text-brand-orange">HE</span></span>
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" class="fixed inset-0 bg-brand-blue flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-11/12 max-w-md">
+            <div class="text-center mb-6">
+                <h1 class="text-3xl font-bold text-brand-blue flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-truck-fast text-brand-orange"></i> Express<span class="text-brand-orange">HE</span>
+                </h1>
+                <p class="text-slate-500 mt-2">Sistema de Autorização de Horas Extras</p>
+            </div>
+            
+            <div class="flex border-b mb-6">
+                <button onclick="switchLoginTab('lider')" id="tab-lider" class="flex-1 py-2 font-semibold text-brand-orange border-b-2 border-brand-orange">Líder</button>
+                <button onclick="switchLoginTab('gestor')" id="tab-gestor" class="flex-1 py-2 font-semibold text-slate-400 border-b-2 border-transparent">Gestor</button>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Usuário</label>
+                    <input type="text" id="login-username" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange" placeholder="Digite seu usuário" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Senha</label>
+                    <input type="password" id="login-password" class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="w-full bg-brand-orange hover-brand-orange text-white font-bold py-3 rounded-lg transition-colors">
+                    Entrar no Sistema
+                </button>
+            </form>
+            <div id="login-error" class="hidden mt-4 bg-red-100 text-red-700 p-3 rounded-lg text-sm text-center">
+                Usuário ou senha incorretos!
+            </div>
+            
+            <div class="mt-6 text-center text-xs text-slate-400">
+                <i class="fa-solid fa-shield-halved"></i> Acesso Seguro Restrito
+            </div>
         </div>
-        
-        <nav class="flex-1 mt-6">
-            <ul class="space-y-2">
-                <li>
-                    <button onclick="navigate('dashboard')" class="w-full flex items-center px-6 py-3 text-white/70 hover:bg-white/10 hover:text-white transition-colors nav-btn" data-target="dashboard">
-                        <i class="fa-solid fa-chart-pie w-6"></i>
-                        <span class="ml-3 hidden md:block font-medium">Painel Geral</span>
-                    </button>
-                </li>
-                <li>
-                    <button onclick="navigate('authorizations')" class="w-full flex items-center px-6 py-3 text-white/70 hover:bg-white/10 hover:text-white transition-colors nav-btn" data-target="authorizations">
-                        <i class="fa-solid fa-clock w-6"></i>
-                        <span class="ml-3 hidden md:block font-medium">Autorizações</span>
-                    </button>
-                </li>
-                <li>
-                    <button onclick="navigate('employees')" class="w-full flex items-center px-6 py-3 text-white/70 hover:bg-white/10 hover:text-white transition-colors nav-btn" data-target="employees">
-                        <i class="fa-solid fa-users w-6"></i>
-                        <span class="ml-3 hidden md:block font-medium">Colaboradores</span>
-                    </button>
-                </li>
-            </ul>
+    </div>
+
+    <!-- BARRA LATERAL (SIDEBAR) -->
+    <aside id="sidebar" class="bg-brand-blue text-white w-full md:w-64 flex flex-col hidden md:flex transition-all">
+        <div class="p-6 text-2xl font-bold border-b border-slate-700 flex items-center gap-2">
+            <i class="fa-solid fa-truck-fast text-brand-orange"></i> Express<span class="text-brand-orange">HE</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4">
+            <a href="#" onclick="navigate('dashboard')" id="nav-dashboard" class="sidebar-item active block px-6 py-3 hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-chart-pie w-6"></i> Painel Geral
+            </a>
+            <a href="#" onclick="navigate('authorizations')" id="nav-authorizations" class="sidebar-item block px-6 py-3 hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-clock w-6"></i> Autorizações
+            </a>
+            <a href="#" onclick="navigate('employees')" id="nav-employees" class="sidebar-item admin-only block px-6 py-3 hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-users w-6"></i> Colaboradores
+            </a>
+            <a href="#" onclick="navigate('reasons')" id="nav-reasons" class="sidebar-item admin-only block px-6 py-3 hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-tags w-6"></i> Motivos (HE)
+            </a>
+            <a href="#" onclick="navigate('access')" id="nav-access" class="sidebar-item admin-only block px-6 py-3 hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-user-shield w-6"></i> Acessos
+            </a>
         </nav>
-        <div class="p-4 border-t border-white/10 hidden md:block text-xs text-white/50 text-center">
-            Sistema de HE v1.0
+        <div class="p-4 border-t border-slate-700 text-sm text-slate-400 flex justify-between items-center">
+            <span id="sidebar-user-name">Usuário</span>
+            <button onclick="logout()" class="text-brand-orange hover:text-white" title="Sair"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
         </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
-        <!-- Header -->
-        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 z-10">
-            <h2 id="page-title" class="text-xl font-bold text-brand-blue">Painel Geral</h2>
-            <div class="flex items-center gap-4">
-                <input type="month" id="global-month-filter" onchange="updateUI()" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-orange focus:border-brand-orange block p-1.5 outline-none" title="Filtrar por Mês">
-                <span class="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full hidden md:inline-flex items-center"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>Sincronização Ativa</span>
-            </div>
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-1 flex flex-col h-full bg-slate-50 relative hidden" id="main-app">
+        <!-- HEADER MOBILE -->
+        <header class="md:hidden bg-brand-blue text-white p-4 flex justify-between items-center">
+            <div class="text-xl font-bold"><i class="fa-solid fa-truck-fast text-brand-orange"></i> ExpressHE</div>
+            <button onclick="toggleMobileMenu()" class="text-2xl"><i class="fa-solid fa-bars"></i></button>
         </header>
 
-        <!-- Content Area -->
-        <div class="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar" id="main-content">
+        <!-- CABEÇALHO SUPERIOR (AÇÕES GERAIS E FILTRO) -->
+        <div class="bg-white border-b px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <h2 id="page-title" class="text-2xl font-bold text-slate-800">Painel Geral</h2>
+            <div class="flex items-center gap-4">
+                <input type="month" id="global-month-filter" class="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-orange" onchange="updateUI()">
+                <div id="cloud-status-badge" class="text-sm font-medium text-yellow-600 bg-yellow-100 px-3 py-1.5 rounded-full flex items-center gap-2">
+                    <i class="fa-solid fa-spinner fa-spin"></i> Conectando...
+                </div>
+            </div>
+        </div>
+
+        <!-- ÁREA DINÂMICA DE TELAS -->
+        <div class="flex-1 overflow-y-auto p-4 md:p-6" id="app-content">
             
-            <!-- VIEW: Dashboard -->
-            <section id="view-dashboard" class="fade-in space-y-6">
-                <!-- Stats Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-brand-orange">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Total de Horas (Mês)</p>
-                                <h3 class="text-3xl font-bold text-brand-blue mt-2" id="stat-total-hours">0</h3>
-                            </div>
-                            <div class="p-3 bg-brand-orange/10 rounded-lg text-brand-orange">
-                                <i class="fa-solid fa-business-time text-xl"></i>
-                            </div>
-                        </div>
+            <!-- TELA: DASHBOARD -->
+            <div id="view-dashboard" class="view-section">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-brand-orange">
+                        <div class="text-slate-500 text-sm font-medium mb-1">Total de Horas (Mês)</div>
+                        <div class="text-4xl font-bold text-slate-800" id="dash-total-hours">0</div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-400">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Aguardando Aprovação</p>
-                                <h3 class="text-3xl font-bold text-brand-blue mt-2" id="stat-pending">0</h3>
-                            </div>
-                            <div class="p-3 bg-yellow-100 rounded-lg text-yellow-600">
-                                <i class="fa-solid fa-hourglass-half text-xl"></i>
-                            </div>
-                        </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-yellow-400">
+                        <div class="text-slate-500 text-sm font-medium mb-1">Aguardando Aprovação</div>
+                        <div class="text-4xl font-bold text-slate-800" id="dash-pending">0</div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
-                        <div class="flex justify-between items-start">
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Autorizadas</p>
-                                <h3 class="text-3xl font-bold text-brand-blue mt-2" id="stat-approved">0</h3>
-                            </div>
-                            <div class="p-3 bg-green-100 rounded-lg text-green-600">
-                                <i class="fa-solid fa-check-double text-xl"></i>
-                            </div>
-                        </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
+                        <div class="text-slate-500 text-sm font-medium mb-1">Autorizadas</div>
+                        <div class="text-4xl font-bold text-slate-800" id="dash-approved">0</div>
                     </div>
                 </div>
 
-                <!-- Recent List -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                        <h3 class="font-semibold text-brand-blue">Últimas Solicitações</h3>
-                        <button onclick="navigate('authorizations')" class="text-brand-orange text-sm font-medium hover:underline">Ver todas</button>
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-4 border-b bg-slate-50 font-semibold text-slate-700 flex justify-between">
+                        Últimas Solicitações
+                        <button onclick="navigate('authorizations')" class="text-brand-orange text-sm hover:underline">Ver todas</button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-gray-50 text-gray-600">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium">Colaborador</th>
-                                    <th class="px-6 py-3 font-medium">Data</th>
-                                    <th class="px-6 py-3 font-medium">Horas</th>
-                                    <th class="px-6 py-3 font-medium">Status</th>
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-white text-slate-500 text-sm border-b">
+                                    <th class="p-4 font-medium">Colaborador</th>
+                                    <th class="p-4 font-medium">Data</th>
+                                    <th class="p-4 font-medium">Horas</th>
+                                    <th class="p-4 font-medium">Status</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-100" id="recent-table-body">
-                                <!-- Populated by JS -->
+                            <tbody id="dash-latest-table">
+                                <!-- Preenchido via JS -->
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <!-- VIEW: Authorizations -->
-            <section id="view-authorizations" class="fade-in hidden space-y-6">
-                <div class="flex justify-between items-center flex-wrap gap-4">
-                    <div class="flex gap-2 w-full md:w-auto">
-                        <select id="filter-status" onchange="renderAuthorizationsTable()" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-orange focus:border-brand-orange block w-full p-2.5 outline-none">
-                            <option value="ALL">Todos os Status</option>
-                            <option value="PENDING">Pendentes</option>
-                            <option value="APPROVED">Aprovados</option>
-                            <option value="REJECTED">Rejeitados</option>
-                        </select>
+            <!-- TELA: AUTORIZAÇÕES -->
+            <div id="view-authorizations" class="view-section hidden">
+                <div class="flex flex-col md:flex-row justify-between mb-6 gap-4">
+                    <div class="flex gap-2">
+                        <button onclick="openAuthModal()" class="bg-brand-orange hover-brand-orange text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Solicitar HE
+                        </button>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="exportExcel()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow transition-colors font-medium text-sm flex items-center" title="Baixar Excel">
-                            <i class="fa-solid fa-file-excel"></i> <span class="hidden md:inline ml-2">Excel</span>
+                        <button onclick="exportToExcel()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel"></i> Excel
                         </button>
-                        <button onclick="exportPDF()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg shadow transition-colors font-medium text-sm flex items-center" title="Baixar PDF">
-                            <i class="fa-solid fa-file-pdf"></i> <span class="hidden md:inline ml-2">PDF</span>
-                        </button>
-                        <button onclick="openNewAuthModal()" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2 rounded-lg shadow transition-colors font-medium text-sm flex items-center">
-                            <i class="fa-solid fa-plus mr-2"></i> Nova Autorização
+                        <button onclick="exportToPDF()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
+                            <i class="fa-solid fa-file-pdf"></i> PDF
                         </button>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden" id="auth-print-area">
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left text-sm">
-                            <thead class="bg-gray-50 text-gray-600">
-                                <tr>
-                                    <th class="px-6 py-3 font-medium">Colaborador</th>
-                                    <th class="px-6 py-3 font-medium">Data / Motivo</th>
-                                    <th class="px-6 py-3 font-medium">Qtd. Horas</th>
-                                    <th class="px-6 py-3 font-medium">Status</th>
-                                    <th class="px-6 py-3 font-medium text-right">Ações</th>
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 text-sm border-b">
+                                    <th class="p-4 font-medium">Colaborador</th>
+                                    <th class="p-4 font-medium">Data HE</th>
+                                    <th class="p-4 font-medium">Qtd Horas</th>
+                                    <th class="p-4 font-medium hidden md:table-cell">Motivo</th>
+                                    <th class="p-4 font-medium text-center">Status</th>
+                                    <th class="p-4 font-medium text-right no-print">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-gray-100" id="auth-table-body">
-                                <!-- Populated by JS -->
+                            <tbody id="auth-table-body" class="divide-y">
+                                <!-- Preenchido via JS -->
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </section>
+            </div>
 
-            <!-- VIEW: Employees -->
-            <section id="view-employees" class="fade-in hidden space-y-6">
-                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div class="text-sm text-gray-500 bg-white p-3 rounded-lg shadow-sm border border-gray-100 flex-1 w-full">
-                        <i class="fa-solid fa-circle-info text-brand-blue mr-2"></i>
-                        <span class="font-medium">Dica de Importação:</span> Use uma planilha com as colunas <b>Nome</b>, <b>Cargo</b> e <b>Matricula</b>.
+            <!-- TELA: COLABORADORES -->
+            <div id="view-employees" class="view-section hidden">
+                <div class="flex flex-col md:flex-row justify-between mb-6 gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-100 items-center">
+                    <div class="text-sm text-slate-500 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-brand-orange"></i>
+                        Dica: Planilha com colunas Nome, Cargo e Matricula.
                     </div>
-                    <div class="flex gap-2 w-full md:w-auto justify-end">
-                        <input type="file" id="emp-file-upload" accept=".xlsx, .xls, .csv" class="hidden" onchange="importEmployees(event)">
-                        <button onclick="document.getElementById('emp-file-upload').click()" class="bg-brand-blue hover:bg-brand-blue/90 text-white px-4 py-2 rounded-lg shadow transition-colors font-medium text-sm flex items-center whitespace-nowrap">
-                            <i class="fa-solid fa-file-import mr-2"></i> Importar Planilha
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="hidden" onchange="handleExcelImport(event)">
+                        <button onclick="document.getElementById('excel-file-input').click()" class="flex-1 md:flex-none bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-file-import"></i> Importar Planilha
                         </button>
-                        <button onclick="openNewEmpModal()" class="bg-brand-orange hover:bg-brand-orangeHover text-white px-4 py-2 rounded-lg shadow transition-colors font-medium text-sm flex items-center whitespace-nowrap">
-                            <i class="fa-solid fa-user-plus mr-2"></i> Novo Colaborador
+                        <button onclick="openEmployeeModal()" class="flex-1 md:flex-none bg-brand-orange hover-brand-orange text-white px-4 py-2 rounded-lg font-medium shadow-sm transition-colors flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-user-plus"></i> Novo Colaborador
                         </button>
                     </div>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="employees-grid">
-                    <!-- Populated by JS -->
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="employee-grid">
+                    <!-- Preenchido via JS -->
                 </div>
-            </section>
+            </div>
+
+            <!-- TELA: MOTIVOS -->
+            <div id="view-reasons" class="view-section hidden">
+                <div class="flex justify-end mb-6">
+                    <button onclick="openReasonModal()" class="bg-brand-orange hover-brand-orange text-white px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2">
+                        <i class="fa-solid fa-plus"></i> Novo Motivo
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-sm border-b">
+                                <th class="p-4 font-medium">Motivo Cadastrado</th>
+                                <th class="p-4 font-medium text-right w-24">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reasons-table-body" class="divide-y">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TELA: ACESSOS DO SISTEMA -->
+            <div id="view-access" class="view-section hidden">
+                <div class="bg-blue-50 text-blue-800 p-4 rounded-xl mb-6 border border-blue-200 text-sm flex gap-3 items-center">
+                    <i class="fa-solid fa-shield-halved text-2xl"></i>
+                    <div>
+                        <strong>Controle de Acesso de Gestores e Líderes.</strong><br>
+                        Cadastre aqui quem poderá logar no sistema. O Gestor aprova horas, o Líder apenas solicita.
+                    </div>
+                </div>
+                <div class="flex justify-end mb-6">
+                    <button onclick="openAccessModal()" class="bg-brand-orange hover-brand-orange text-white px-4 py-2 rounded-lg font-medium shadow-sm flex items-center gap-2">
+                        <i class="fa-solid fa-user-lock"></i> Novo Acesso
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-sm border-b">
+                                <th class="p-4 font-medium">Nome (Identificação)</th>
+                                <th class="p-4 font-medium">Usuário de Login</th>
+                                <th class="p-4 font-medium">Perfil</th>
+                                <th class="p-4 font-medium text-right w-24">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="access-table-body" class="divide-y">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
         </div>
     </main>
 
-    <!-- MODALS -->
+    <!-- ================= MODAIS ================= -->
     
-    <!-- Modal: Nova Autorização -->
-    <div id="auth-modal" class="fixed inset-0 bg-brand-blue/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                <h3 id="modal-auth-title" class="font-bold text-lg text-brand-blue">Registrar Horas Extras</h3>
-                <button onclick="closeModal('auth-modal')" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
-            </div>
-            <div class="p-6 overflow-y-auto no-scrollbar">
-                <form id="auth-form" class="space-y-4">
-                    <input type="hidden" id="auth-id" value="">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Colaborador</label>
-                        <select id="auth-employee" required class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-brand-orange focus:border-brand-orange p-2.5 outline-none">
-                            <!-- Populated by JS -->
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Data da HE</label>
-                            <input type="date" id="auth-date" required class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-brand-orange focus:border-brand-orange p-2.5 outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Qtd. Horas</label>
-                            <input type="number" id="auth-hours" step="0.5" min="0.5" required placeholder="Ex: 2" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-brand-orange focus:border-brand-orange p-2.5 outline-none">
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Motivo da Hora Extra</label>
-                        <select id="auth-reason" required class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-brand-orange focus:border-brand-orange p-2.5 outline-none mb-2">
-                            <option value="" disabled selected>Selecione um motivo...</option>
-                            <option value="Atraso de Rota">Atraso de Rota / Trânsito</option>
-                            <option value="Excesso de Demanda">Excesso de Demanda (Pico)</option>
-                            <option value="Cobertura de Falta">Cobertura de Falta/Atestado</option>
-                            <option value="Manutencao Veiculo">Manutenção de Veículo</option>
-                            <option value="Outros">Outros (Descrever abaixo)</option>
-                        </select>
-                        <textarea id="auth-description" rows="2" placeholder="Detalhes adicionais do motivo..." class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-brand-orange focus:border-brand-orange p-2.5 outline-none"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Status Inicial</label>
-                        <div class="flex gap-4">
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="auth-status" value="PENDING" checked class="w-4 h-4 text-brand-orange focus:ring-brand-orange">
-                                <span class="ml-2 text-sm text-gray-700">Pendente</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="auth-status" value="APPROVED" class="w-4 h-4 text-green-600 focus:ring-green-500">
-                                <span class="ml-2 text-sm text-gray-700">Pré-Aprovado</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="pt-4 border-t border-gray-100 flex justify-end gap-3">
-                        <button type="button" onclick="closeModal('auth-modal')" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 text-white bg-brand-orange hover:bg-brand-orangeHover rounded-lg transition-colors text-sm font-medium">Salvar Registro</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal: Novo Colaborador -->
-    <div id="emp-modal" class="fixed inset-0 bg-brand-blue/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                <h3 id="modal-emp-title" class="font-bold text-lg text-brand-blue">Cadastrar Colaborador</h3>
-                <button onclick="closeModal('emp-modal')" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <form id="emp-form" class="space-y-4">
-                    <input type="hidden" id="emp-id" value="">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
-                        <input type="text" id="emp-name" required placeholder="Ex: João da Silva" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-brand-orange focus:border-brand-orange p-2.5 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Cargo / Função</label>
-                        <select id="emp-role" required class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-brand-orange focus:border-brand-orange p-2.5 outline-none">
-                            <option value="" disabled selected>Selecione...</option>
-                            <option value="Motorista">Motorista</option>
-                            <option value="Ajudante">Ajudante de Carga</option>
-                            <option value="Conferente">Conferente</option>
-                            <option value="Supervisor">Supervisor</option>
-                            <option value="Administrativo">Administrativo</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Matrícula (Opcional)</label>
-                        <input type="text" id="emp-reg" placeholder="Ex: 1045" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-brand-orange focus:border-brand-orange p-2.5 outline-none">
-                    </div>
-                    
-                    <div class="pt-4 border-t border-gray-100 flex justify-end gap-3 mt-6">
-                        <button type="button" onclick="closeModal('emp-modal')" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 text-white bg-brand-orange hover:bg-brand-orangeHover rounded-lg transition-colors text-sm font-medium">Salvar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal: Confirmar Exclusão de Colaborador -->
-    <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden p-6 text-center transform transition-all">
-            <div class="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-triangle-exclamation text-3xl text-red-600"></i>
-            </div>
-            <h3 class="font-bold text-lg text-gray-900 mb-2">Excluir Colaborador?</h3>
-            <p class="text-gray-500 text-sm mb-6">Tem certeza que deseja remover este colaborador? (Isto não apagará o histórico de horas extras já feitas).</p>
-            <div class="flex gap-3 justify-center">
-                <button onclick="closeModal('delete-confirm-modal')" class="px-4 py-2 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium flex-1">Cancelar</button>
-                <button onclick="executeDeleteEmployee()" class="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-medium flex-1">Sim, Excluir</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Loading Overlay para a Nuvem -->
-    <div id="loading-overlay" class="fixed inset-0 bg-brand-blue/90 backdrop-blur-sm hidden z-[100] flex flex-col items-center justify-center text-white transition-opacity">
-        <i class="fa-solid fa-cloud-arrow-up fa-bounce text-5xl mb-4 text-brand-orange"></i>
-        <h3 class="text-xl font-bold mb-1">Sincronizando Nuvem</h3>
-        <p id="loading-text" class="text-white/70 text-sm">Aguarde um momento...</p>
-    </div>
-
-    <div id="toast-container"></div>
-
-    <script>
-        /**
-         * ==========================================
-         * CONFIGURAÇÃO DO GOOGLE APPS SCRIPT
-         * ==========================================
-         * 
-         * Para hospedar no GitHub Pages e salvar em uma planilha do Google:
-         * 1. Crie uma planilha no Google Sheets.
-         * 2. Vá em Extensões > Apps Script.
-         * 3. Crie um script para receber as chamadas POST (função doPost).
-         * 4. Publique como "Web App" e cole a URL abaixo.
-         * 
-         * Enquanto estiver VAZIO, o sistema funcionará 100% usando o LocalStorage 
-         * do seu navegador para que você possa testar imediatamente.
-         */
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQIRbiw1UEYR6VrKW-6AGwcpQ8vIbxBqS-FiwpKdT_YCU0po6EmYiboWUoXv0OX-Zh/exec"; 
-
-        // === ESTADO GLOBAL ===
-        let appData = {
-            employees: [],
-            authorizations: []
-        };
-
-        // Classes utilitárias para status
-        const STATUS_CONFIG = {
-            'PENDING': { label: 'Pendente', class: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: 'fa-hourglass-half' },
-            'APPROVED': { label: 'Aprovado', class: 'bg-green-100 text-green-800 border-green-200', icon: 'fa-check' },
-            'REJECTED': { label: 'Rejeitado', class: 'bg-red-100 text-red-800 border-red-200', icon: 'fa-xmark' }
-        };
-
-        // === INDICADORES DE CARREGAMENTO ===
-        function showLoading(msg = 'Aguarde...') {
-            document.getElementById('loading-text').innerText = msg;
-            document.getElementById('loading-overlay').classList.remove('hidden');
-        }
-        function hideLoading() {
-            document.getElementById('loading-overlay').classList.add('hidden');
-        }
-
-        // === PERSISTÊNCIA DE DADOS (100% NUVEM) ===
-        
-        async function loadData() {
-            if (!GOOGLE_SCRIPT_URL || !GOOGLE_SCRIPT_URL.startsWith("http")) return;
-
-            showLoading("Conectando à Planilha...");
+    <!-- Modal: Solicitar HE -->
+    <div id="modal-auth" class="modal fixed inset-0 items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 max-w-lg p-6 max-h-[90vh] overflow-y-auto relative">
+            <button onclick="closeModal('modal-auth')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-xl font-bold mb-4 text-brand-blue" id="auth-modal-title">Nova Solicitação de HE</h3>
             
-            // Fix para o ambiente de pré-visualização
-            if (window.location.protocol === 'blob:' || window.location.hostname.includes('usercontent') || window.location.origin === 'null') {
-                setTimeout(() => { hideLoading(); updateUI(); }, 500);
-                return;
-            }
-
-            try {
-                // A requisição GET padrão já cuida do redirecionamento do Google perfeitamente
-                const response = await fetch(GOOGLE_SCRIPT_URL);
-                const text = await response.text();
-                
-                try {
-                    const data = JSON.parse(text); 
-                    appData.employees = data.employees || [];
-                    appData.authorizations = (data.authorizations || []).map(a => ({
-                        ...a,
-                        hours: parseFloat(a.hours)
-                    }));
-                    appData.authorizations.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-                } catch(err) {
-                    console.error("O Google não enviou dados válidos:", text);
-                    showToast("Erro! O Google barrou a leitura. Verifique as permissões (Qualquer pessoa).", "error");
-                }
-
-            } catch (error) {
-                console.error("Erro de Rede ou CORS:", error);
-                showToast("Bloqueio de Segurança! Refaça a implantação do Apps Script.", "error");
-            } finally {
-                hideLoading();
-                updateUI();
-            }
-        }
-
-        async function saveToCloud(action, payload) {
-            if (!GOOGLE_SCRIPT_URL || !GOOGLE_SCRIPT_URL.startsWith("http")) return;
-
-            showLoading("Salvando na Nuvem...");
-            
-            if (window.location.protocol === 'blob:' || window.location.hostname.includes('usercontent') || window.location.origin === 'null') {
-                setTimeout(() => hideLoading(), 500);
-                return;
-            }
-
-            try {
-                // Usando text/plain para contornar bloqueios de pré-requisito (CORS preflight) do Google
-                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: action, data: payload })
-                });
-                
-                try {
-                    const result = await response.json();
-                    if(result.status === "erro") showToast("Erro na planilha: " + result.msg, "error");
-                } catch(e) {}
-
-            } catch (error) {
-                console.error("Erro ao enviar POST:", error);
-                showToast("Bloqueio ao salvar. Verifique se o Script foi atualizado para Nova Versão.", "error");
-            } finally {
-                hideLoading();
-            }
-        }
-
-        // === NAVEGAÇÃO E UI ===
-
-        function navigate(viewId) {
-            // Update buttons
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('bg-white/10', 'text-white', 'border-l-4', 'border-brand-orange');
-                if(btn.dataset.target === viewId) {
-                    btn.classList.add('bg-white/10', 'text-white', 'border-l-4', 'border-brand-orange');
-                }
-            });
-
-            // Update Views
-            ['dashboard', 'authorizations', 'employees'].forEach(id => {
-                document.getElementById(`view-${id}`).classList.add('hidden');
-            });
-            document.getElementById(`view-${viewId}`).classList.remove('hidden');
-
-            // Update Titles
-            const titles = {
-                'dashboard': 'Painel Geral',
-                'authorizations': 'Gestão de Autorizações',
-                'employees': 'Equipe e Colaboradores'
-            };
-            document.getElementById('page-title').innerText = titles[viewId];
-            
-            // Re-render specific view if needed
-            if(viewId === 'authorizations') renderAuthorizationsTable();
-            if(viewId === 'employees') renderEmployees();
-            if(viewId === 'dashboard') updateDashboardStats();
-        }
-
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = `
-                <div class="flex items-center">
-                    <i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'} mr-2"></i>
-                    <span class="font-medium text-sm">${message}</span>
+            <form id="auth-form" onsubmit="saveAuth(event)">
+                <input type="hidden" id="auth-id">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Colaborador</label>
+                    <select id="auth-employee" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                        <!-- Options via JS -->
+                    </select>
                 </div>
-            `;
-            container.appendChild(toast);
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Data da HE</label>
+                        <input type="date" id="auth-date" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Total de Horas</label>
+                        <input type="number" step="0.5" min="0.5" id="auth-hours" placeholder="Ex: 2.5" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Motivo</label>
+                    <select id="auth-reason" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                        <!-- Options via JS -->
+                    </select>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Justificativa / Descrição</label>
+                    <textarea id="auth-desc" rows="3" class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none resize-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeModal('modal-auth')" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-orange text-white rounded-lg hover-brand-orange font-medium flex items-center gap-2">
+                        <i class="fa-solid fa-save"></i> Salvar Solicitação
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-            setTimeout(() => {
-                toast.classList.add('fadeOut');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
-
-        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-
-        // === COLABORADORES ===
-
-        function openNewEmpModal() {
-            document.getElementById('emp-form').reset();
-            document.getElementById('emp-id').value = '';
-            document.getElementById('modal-emp-title').innerText = 'Cadastrar Colaborador';
-            openModal('emp-modal');
-        }
-
-        function editEmployee(id) {
-            const emp = appData.employees.find(e => e.id === id);
-            if (!emp) return;
+    <!-- Modal: Colaborador -->
+    <div id="modal-employee" class="modal fixed inset-0 items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 max-w-md p-6 relative">
+            <button onclick="closeModal('modal-employee')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-xl font-bold mb-4 text-brand-blue" id="emp-modal-title">Novo Colaborador</h3>
             
-            document.getElementById('emp-id').value = emp.id;
-            document.getElementById('emp-name').value = emp.name;
-            document.getElementById('emp-role').value = emp.role;
-            document.getElementById('emp-reg').value = emp.reg || '';
-            
-            document.getElementById('modal-emp-title').innerText = 'Editar Colaborador';
-            openModal('emp-modal');
-        }
+            <form id="employee-form" onsubmit="saveEmployee(event)">
+                <input type="hidden" id="emp-id">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Nome Completo</label>
+                    <input type="text" id="emp-name" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Cargo/Função</label>
+                    <input type="text" id="emp-role" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Matrícula</label>
+                    <input type="text" id="emp-reg" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeModal('modal-employee')" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-50">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-orange text-white rounded-lg hover-brand-orange font-medium">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        let employeeToDelete = null;
-        function confirmDeleteEmployee(id) {
-            employeeToDelete = id;
-            openModal('delete-confirm-modal');
-        }
+    <!-- Modal: Motivo -->
+    <div id="modal-reason" class="modal fixed inset-0 items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 max-w-sm p-6 relative">
+            <button onclick="closeModal('modal-reason')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-xl font-bold mb-4 text-brand-blue" id="reason-modal-title">Novo Motivo de HE</h3>
+            <form id="reason-form" onsubmit="saveReason(event)">
+                <input type="hidden" id="reason-id">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Descrição do Motivo</label>
+                    <input type="text" id="reason-name" placeholder="Ex: Cobertura de Falta" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeModal('modal-reason')" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-50">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-orange text-white rounded-lg hover-brand-orange font-medium">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        async function executeDeleteEmployee() {
-            if (!employeeToDelete) return;
-            
-            appData.employees = appData.employees.filter(e => e.id !== employeeToDelete);
-            await saveToCloud('DELETE_EMPLOYEE', { id: employeeToDelete });
-            
-            closeModal('delete-confirm-modal');
-            employeeToDelete = null;
-            updateUI();
-            showToast('Colaborador excluído!', 'success');
-        }
+    <!-- Modal: Acesso (Usuários do Sistema) -->
+    <div id="modal-access" class="modal fixed inset-0 items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 max-w-sm p-6 relative">
+            <button onclick="closeModal('modal-access')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-xl"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="text-xl font-bold mb-4 text-brand-blue" id="access-modal-title">Configurar Acesso</h3>
+            <form id="access-form" onsubmit="saveAccess(event)">
+                <input type="hidden" id="access-id">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Nome (Dono da conta)</label>
+                    <input type="text" id="access-name" placeholder="Ex: João Silva" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Login (Usuário)</label>
+                    <input type="text" id="access-username" placeholder="Ex: joao.silva" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Senha</label>
+                    <input type="text" id="access-password" placeholder="Defina uma senha" required class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium mb-1">Perfil de Acesso</label>
+                    <select id="access-role" class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-brand-orange outline-none">
+                        <option value="LIDER">Líder (Só solicita)</option>
+                        <option value="ADMIN">Gestor (Aprova tudo)</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeModal('modal-access')" class="px-4 py-2 border rounded-lg text-slate-600 hover:bg-slate-50">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-orange text-white rounded-lg hover-brand-orange font-medium">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-        document.getElementById('emp-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const empId = document.getElementById('emp-id').value;
-            const empData = {
-                name: document.getElementById('emp-name').value,
-                role: document.getElementById('emp-role').value,
-                reg: document.getElementById('emp-reg').value || '-'
-            };
-            
-            if (empId) {
-                // UPDATE (Edição)
-                const index = appData.employees.findIndex(e => e.id === empId);
-                if (index !== -1) {
-                    empData.id = empId;
-                    appData.employees[index] = empData;
-                    await saveToCloud('UPDATE_EMPLOYEE', empData);
-                    showToast('Colaborador atualizado!');
+    <!-- Modal Confirmação de Exclusão -->
+    <div id="modal-confirm" class="modal fixed inset-0 items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-sm p-6 text-center">
+            <div class="text-red-500 text-5xl mb-4"><i class="fa-solid fa-circle-exclamation"></i></div>
+            <h3 class="text-lg font-bold mb-2">Atenção!</h3>
+            <p class="text-slate-600 mb-6 text-sm" id="confirm-msg">Tem certeza que deseja excluir?</p>
+            <div class="flex justify-center gap-3">
+                <button onclick="closeModal('modal-confirm')" class="px-6 py-2 border rounded-lg text-slate-600 hover:bg-slate-50 font-medium">Cancelar</button>
+                <button id="btn-confirm-delete" class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium">Sim, Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="global-loading" class="fixed inset-0 bg-white/90 z-[60] flex flex-col items-center justify-center hidden">
+        <div class="loader mb-4"></div>
+        <div class="text-brand-blue font-bold animate-pulse" id="loading-text">Sincronizando...</div>
+    </div>
+
+    <!-- Notificações Toast -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[70] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script type="module">
+        // =================================================================================
+        // CONFIGURAÇÃO DO BANCO DE DADOS OFICIAL (FIREBASE)
+        // =================================================================================
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // A SUA CHAVE DO BANCO DE DADOS OFICIAL:
+        const firebaseConfig = {
+            apiKey: "AIzaSyA_1YRyA0kM2I-4lohDPFE57HBtBXOTv2g",
+            authDomain: "hextra-88959.firebaseapp.com",
+            projectId: "hextra-88959",
+            storageBucket: "hextra-88959.firebasestorage.app",
+            messagingSenderId: "281372454131",
+            appId: "1:281372454131:web:0b42763b41d0bfe960db86"
+        };
+
+        // Estado Global da Aplicação
+        window.appData = {
+            employees: [],
+            authorizations: [],
+            reasons: [],
+            system_users: []
+        };
+        
+        window.currentUser = null;
+        window.currentLoginType = 'lider';
+        window.isCloudActive = false;
+        let db = null;
+
+        // Inicializa conexão com Firebase
+        window.initCloud = async function() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Entra de forma invisível
+                await signInAnonymously(auth);
+
+                window.isCloudActive = true;
+                const badge = document.getElementById('cloud-status-badge');
+                if(badge) {
+                    badge.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Nuvem Ativa';
+                    badge.className = 'text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded-full border border-green-100 flex items-center gap-2';
                 }
-            } else {
-                // CREATE (Novo Cadastro)
-                empData.id = Date.now().toString();
-                appData.employees.push(empData);
-                await saveToCloud('ADD_EMPLOYEE', empData);
-                showToast('Colaborador cadastrado!');
+
+                // Escuta as coleções em Tempo Real (Realtime Sync)
+                const collections = ['employees', 'authorizations', 'reasons', 'system_users'];
+                collections.forEach(col => {
+                    const colRef = collection(db, col);
+                    onSnapshot(colRef, (snapshot) => {
+                        const dataArray = [];
+                        snapshot.forEach(d => dataArray.push(d.data()));
+                        window.appData[col] = dataArray;
+
+                        // Proteção da Conta Admin Mestre - Se não existir, insere virtualmente
+                        if (col === 'system_users') {
+                            if (!window.appData.system_users.find(u => u.username === 'admin')) {
+                                window.appData.system_users.push({ id: 'master', name: 'Admin Mestre', username: 'admin', password: 'admin', role: 'ADMIN' });
+                            }
+                        }
+                        
+                        // Atualiza a tela se já estiver logado
+                        if (window.currentUser) window.updateUI();
+                    }, (error) => {
+                        console.error("Erro na Escuta (Firestore):", error);
+                    });
+                });
+                return true;
+            } catch (e) {
+                console.error("Erro ao iniciar Firebase:", e);
+                window.showToast("Aviso: Rodando offline (Modo Teste)", "warning");
+                
+                // Fallback de Memória Local
+                const localData = localStorage.getItem('expressHE_DB');
+                if(localData) {
+                    window.appData = JSON.parse(localData);
+                } else {
+                    window.appData.system_users.push({ id: 'master', name: 'Admin Mestre', username: 'admin', password: 'admin', role: 'ADMIN' });
+                }
+                
+                const badge = document.getElementById('cloud-status-badge');
+                if(badge) {
+                    badge.innerHTML = '<i class="fa-solid fa-hard-drive"></i> Local (Offline)';
+                    badge.className = 'text-sm font-medium text-yellow-600 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-200 flex items-center gap-2';
+                }
+                return false;
             }
+        };
+
+        // Funções Genéricas de Nuvem (Salvar / Excluir)
+        window.cloudSave = async function(colName, id, data) {
+            window.showLoading("Salvando...");
+            try {
+                if (window.isCloudActive) {
+                    const docRef = doc(db, colName, String(id));
+                    await setDoc(docRef, data);
+                } else {
+                    // Fallback Offline
+                    const idx = window.appData[colName].findIndex(i => i.id === id);
+                    if(idx > -1) window.appData[colName][idx] = data;
+                    else window.appData[colName].push(data);
+                    localStorage.setItem('expressHE_DB', JSON.stringify(window.appData));
+                    window.updateUI();
+                }
+                window.showToast("Salvo com sucesso!", "success");
+            } catch(e) {
+                console.error("Erro ao salvar:", e);
+                window.showToast("Erro ao salvar na nuvem.", "error");
+            }
+            window.hideLoading();
+        };
+
+        window.cloudDelete = async function(colName, id) {
+            window.showLoading("Excluindo...");
+            try {
+                if (window.isCloudActive) {
+                    const docRef = doc(db, colName, String(id));
+                    await deleteDoc(docRef);
+                } else {
+                    // Fallback Offline
+                    window.appData[colName] = window.appData[colName].filter(i => i.id !== id);
+                    localStorage.setItem('expressHE_DB', JSON.stringify(window.appData));
+                    window.updateUI();
+                }
+                window.showToast("Excluído com sucesso!", "success");
+            } catch(e) {
+                console.error("Erro ao excluir:", e);
+                window.showToast("Erro ao excluir na nuvem.", "error");
+            }
+            window.hideLoading();
+        };
+
+        // =================================================================================
+        // LÓGICA DE INTERFACE E REGRAS DE NEGÓCIO (FRONT-END)
+        // =================================================================================
+        
+        // Setup Inicial
+        document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('global-month-filter').value = new Date().toISOString().slice(0, 7); // Mês atual
             
-            closeModal('emp-modal');
-            e.target.reset();
-            updateUI();
+            window.showLoading("Conectando Banco de Dados...");
+            await window.initCloud();
+            window.hideLoading();
+            
+            window.checkSession();
         });
 
-        async function importEmployees(event) {
+        window.checkSession = function() {
+            const savedUser = sessionStorage.getItem('expressHE_user');
+            if (savedUser) {
+                window.currentUser = JSON.parse(savedUser);
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                document.getElementById('sidebar-user-name').textContent = window.currentUser.name;
+                
+                // Aplica regras de UI
+                const adminOnlyEls = document.querySelectorAll('.admin-only');
+                if(window.currentUser.role === 'ADMIN') {
+                    adminOnlyEls.forEach(el => el.classList.remove('hidden'));
+                } else {
+                    adminOnlyEls.forEach(el => el.classList.add('hidden'));
+                }
+                
+                window.navigate('dashboard');
+            } else {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('main-app').classList.add('hidden');
+            }
+        };
+
+        window.switchLoginTab = function(type) {
+            window.currentLoginType = type;
+            const tabLider = document.getElementById('tab-lider');
+            const tabGestor = document.getElementById('tab-gestor');
+            
+            if (type === 'lider') {
+                tabLider.className = "flex-1 py-2 font-semibold text-brand-orange border-b-2 border-brand-orange";
+                tabGestor.className = "flex-1 py-2 font-semibold text-slate-400 border-b-2 border-transparent";
+            } else {
+                tabGestor.className = "flex-1 py-2 font-semibold text-brand-orange border-b-2 border-brand-orange";
+                tabLider.className = "flex-1 py-2 font-semibold text-slate-400 border-b-2 border-transparent";
+            }
+            document.getElementById('login-error').classList.add('hidden');
+        };
+
+        window.handleLogin = function(e) {
+            e.preventDefault();
+            const user = document.getElementById('login-username').value.trim();
+            const pass = document.getElementById('login-password').value;
+            
+            const expectedRole = window.currentLoginType === 'lider' ? 'LIDER' : 'ADMIN';
+            
+            // Procura usuário no banco
+            const validUser = window.appData.system_users.find(u => u.username === user && u.password === pass && u.role === expectedRole);
+
+            if (validUser) {
+                sessionStorage.setItem('expressHE_user', JSON.stringify(validUser));
+                window.checkSession();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        };
+
+        window.logout = function() {
+            sessionStorage.removeItem('expressHE_user');
+            window.currentUser = null;
+            window.checkSession();
+        };
+
+        // Navegação
+        window.navigate = function(view) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${view}`).classList.remove('hidden');
+            
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`nav-${view}`).classList.add('active');
+            
+            const titles = {
+                'dashboard': 'Painel Geral',
+                'authorizations': 'Autorizações de HE',
+                'employees': 'Equipe e Colaboradores',
+                'reasons': 'Motivos de HE Permitidos',
+                'access': 'Gestão de Acessos'
+            };
+            document.getElementById('page-title').textContent = titles[view];
+            
+            if(window.innerWidth < 768) document.getElementById('sidebar').classList.add('hidden');
+            
+            window.updateUI();
+        };
+
+        window.toggleMobileMenu = function() {
+            document.getElementById('sidebar').classList.toggle('hidden');
+        };
+
+        // Core Update UI
+        window.updateUI = function() {
+            if(!window.currentUser) return;
+            const view = document.querySelector('.view-section:not(.hidden)').id.replace('view-', '');
+            
+            if (view === 'dashboard') window.renderDashboard();
+            else if (view === 'authorizations') window.renderAuthorizations();
+            else if (view === 'employees') window.renderEmployees();
+            else if (view === 'reasons') window.renderReasons();
+            else if (view === 'access') window.renderAccess();
+        };
+
+        // Render Dashboard
+        window.renderDashboard = function() {
+            const filterMonth = document.getElementById('global-month-filter').value;
+            let auths = window.appData.authorizations.filter(a => a.date.startsWith(filterMonth));
+            
+            // Líder só vê o que ele lançou (ou tudo se você preferir, mas vamos limitar por segurança)
+            // Se preferir que Líder veja tudo da equipe, remova a linha abaixo.
+            // if(window.currentUser.role === 'LIDER') auths = auths.filter(a => a.createdBy === window.currentUser.username);
+
+            let totalHours = 0, pending = 0, approved = 0;
+            
+            auths.forEach(a => {
+                const hrs = parseFloat(a.hours);
+                totalHours += hrs;
+                if(a.status === 'PENDENTE') pending++;
+                if(a.status === 'APROVADO') approved++;
+            });
+
+            document.getElementById('dash-total-hours').textContent = totalHours.toFixed(1);
+            document.getElementById('dash-pending').textContent = pending;
+            document.getElementById('dash-approved').textContent = approved;
+
+            const tbody = document.getElementById('dash-latest-table');
+            tbody.innerHTML = '';
+            
+            const latest = auths.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
+            
+            if(latest.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Sem atividade no mês selecionado.</td></tr>';
+                return;
+            }
+
+            latest.forEach(a => {
+                const statusBadge = a.status === 'APROVADO' ? '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Aprovado</span>' :
+                                    a.status === 'REJEITADO' ? '<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">Rejeitado</span>' :
+                                    '<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">Pendente</span>';
+                
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-slate-50';
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">${a.employeeName}</td>
+                    <td class="p-4 text-sm">${window.formatDate(a.date)}</td>
+                    <td class="p-4 font-bold text-slate-700">${a.hours}h</td>
+                    <td class="p-4">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        };
+
+        // Render Authorizations
+        window.renderAuthorizations = function() {
+            const filterMonth = document.getElementById('global-month-filter').value;
+            let auths = window.appData.authorizations.filter(a => a.date.startsWith(filterMonth));
+            
+            const tbody = document.getElementById('auth-table-body');
+            tbody.innerHTML = '';
+
+            if(auths.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-slate-500">Nenhuma solicitação encontrada neste mês.</td></tr>';
+                return;
+            }
+
+            // Ordena por data (mais recentes primeiro)
+            auths.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            auths.forEach(a => {
+                const isGestor = window.currentUser.role === 'ADMIN';
+                let statusUI = '';
+                
+                if (a.status === 'PENDENTE') {
+                    if (isGestor) {
+                        statusUI = `
+                            <div class="flex gap-1 justify-center no-print">
+                                <button onclick="updateAuthStatus('${a.id}', 'APROVADO')" class="bg-green-500 hover:bg-green-600 text-white p-1.5 rounded" title="Aprovar"><i class="fa-solid fa-check"></i></button>
+                                <button onclick="updateAuthStatus('${a.id}', 'REJEITADO')" class="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded" title="Rejeitar"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div class="print-only hidden text-yellow-600 font-bold text-center">Pendente</div>
+                        `;
+                    } else {
+                        statusUI = '<span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold block text-center">Pendente</span>';
+                    }
+                } else if (a.status === 'APROVADO') {
+                    statusUI = '<span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold block text-center"><i class="fa-solid fa-check mr-1"></i> Aprovado</span>';
+                } else {
+                    statusUI = '<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold block text-center"><i class="fa-solid fa-xmark mr-1"></i> Rejeitado</span>';
+                }
+
+                let acoesUI = '';
+                // Se for gestor, ou se for lider e estiver pendente, pode editar/excluir
+                if (isGestor || (window.currentUser.role === 'LIDER' && a.status === 'PENDENTE')) {
+                    acoesUI = `
+                        <button onclick="editAuth('${a.id}')" class="text-blue-500 hover:bg-blue-50 p-2 rounded"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="confirmDelete('authorizations', '${a.id}')" class="text-red-500 hover:bg-red-50 p-2 rounded"><i class="fa-solid fa-trash"></i></button>
+                    `;
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-4">
+                        <div class="font-medium">${a.employeeName}</div>
+                        <div class="text-xs text-slate-400">Criado por: ${a.createdBy || 'Sistema'}</div>
+                    </td>
+                    <td class="p-4">${window.formatDate(a.date)}</td>
+                    <td class="p-4 font-bold">${a.hours}h</td>
+                    <td class="p-4 hidden md:table-cell text-sm text-slate-600">${a.reason}</td>
+                    <td class="p-4 align-middle">${statusUI}</td>
+                    <td class="p-4 text-right no-print">${acoesUI}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        };
+
+        window.updateAuthStatus = function(id, newStatus) {
+            const auth = window.appData.authorizations.find(a => a.id === id);
+            if(auth) {
+                auth.status = newStatus;
+                window.cloudSave('authorizations', id, auth);
+            }
+        };
+
+        // Formulário de Autorização
+        window.openAuthModal = function() {
+            document.getElementById('auth-form').reset();
+            document.getElementById('auth-id').value = '';
+            document.getElementById('auth-modal-title').textContent = 'Nova Solicitação de HE';
+            
+            // Preenche dropdown de colaboradores
+            const empSelect = document.getElementById('auth-employee');
+            empSelect.innerHTML = '<option value="">Selecione o Colaborador...</option>';
+            // Ordena alfabeticamente
+            const sortedEmp = [...window.appData.employees].sort((a,b) => a.name.localeCompare(b.name));
+            sortedEmp.forEach(e => {
+                empSelect.innerHTML += `<option value="${e.id}">${e.name} (${e.role})</option>`;
+            });
+
+            // Preenche dropdown de motivos
+            const reasonSelect = document.getElementById('auth-reason');
+            reasonSelect.innerHTML = '<option value="">Selecione o Motivo...</option>';
+            window.appData.reasons.forEach(r => {
+                reasonSelect.innerHTML += `<option value="${r.name}">${r.name}</option>`;
+            });
+
+            document.getElementById('modal-auth').classList.add('active');
+        };
+
+        window.editAuth = function(id) {
+            window.openAuthModal();
+            const auth = window.appData.authorizations.find(a => a.id === id);
+            if(auth) {
+                document.getElementById('auth-modal-title').textContent = 'Editar Solicitação de HE';
+                document.getElementById('auth-id').value = auth.id;
+                document.getElementById('auth-employee').value = auth.employeeId;
+                document.getElementById('auth-date').value = auth.date;
+                document.getElementById('auth-hours').value = auth.hours;
+                document.getElementById('auth-reason').value = auth.reason;
+                document.getElementById('auth-desc').value = auth.description;
+            }
+        };
+
+        window.saveAuth = function(e) {
+            e.preventDefault();
+            const id = document.getElementById('auth-id').value || `auth_${Date.now()}`;
+            const empId = document.getElementById('auth-employee').value;
+            const emp = window.appData.employees.find(x => x.id === empId);
+            
+            const data = {
+                id: id,
+                employeeId: empId,
+                employeeName: emp.name,
+                date: document.getElementById('auth-date').value,
+                hours: document.getElementById('auth-hours').value,
+                reason: document.getElementById('auth-reason').value,
+                description: document.getElementById('auth-desc').value,
+                status: 'PENDENTE', // Se editar, volta pra pendente
+                createdAt: new Date().toISOString(),
+                createdBy: window.currentUser.name
+            };
+
+            // Se for edição, mantém a data de criação original se existir
+            if (document.getElementById('auth-id').value) {
+                const oldAuth = window.appData.authorizations.find(a => a.id === id);
+                if (oldAuth) data.createdAt = oldAuth.createdAt;
+            }
+
+            window.cloudSave('authorizations', id, data);
+            window.closeModal('modal-auth');
+        };
+
+        // Render Employees
+        window.renderEmployees = function() {
+            const grid = document.getElementById('employee-grid');
+            grid.innerHTML = '';
+            
+            if(window.appData.employees.length === 0) {
+                grid.innerHTML = '<div class="col-span-full p-12 text-center text-slate-500">Nenhum colaborador cadastrado.</div>';
+                return;
+            }
+
+            const sorted = [...window.appData.employees].sort((a,b) => a.name.localeCompare(b.name));
+
+            sorted.forEach(emp => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex flex-col relative group';
+                card.innerHTML = `
+                    <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <button onclick="editEmployee('${emp.id}')" class="text-blue-500 hover:bg-blue-50 p-1.5 rounded"><i class="fa-solid fa-pen text-sm"></i></button>
+                        <button onclick="confirmDelete('employees', '${emp.id}')" class="text-red-500 hover:bg-red-50 p-1.5 rounded"><i class="fa-solid fa-trash text-sm"></i></button>
+                    </div>
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="w-12 h-12 bg-brand-blue text-brand-orange rounded-full flex items-center justify-center text-xl font-bold uppercase">
+                            ${emp.name.charAt(0)}
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-800 leading-tight pr-12">${emp.name}</div>
+                            <div class="text-sm text-slate-500">${emp.role}</div>
+                        </div>
+                    </div>
+                    <div class="mt-auto pt-3 border-t text-xs text-slate-400 font-mono">
+                        <i class="fa-regular fa-id-card"></i> ${emp.reg}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        };
+
+        window.openEmployeeModal = function() {
+            document.getElementById('employee-form').reset();
+            document.getElementById('emp-id').value = '';
+            document.getElementById('emp-modal-title').textContent = 'Novo Colaborador';
+            document.getElementById('modal-employee').classList.add('active');
+        };
+
+        window.editEmployee = function(id) {
+            window.openEmployeeModal();
+            const emp = window.appData.employees.find(e => e.id === id);
+            if(emp) {
+                document.getElementById('emp-modal-title').textContent = 'Editar Colaborador';
+                document.getElementById('emp-id').value = emp.id;
+                document.getElementById('emp-name').value = emp.name;
+                document.getElementById('emp-role').value = emp.role;
+                document.getElementById('emp-reg').value = emp.reg;
+            }
+        };
+
+        window.saveEmployee = function(e) {
+            e.preventDefault();
+            const id = document.getElementById('emp-id').value || `emp_${Date.now()}`;
+            const data = {
+                id: id,
+                name: document.getElementById('emp-name').value,
+                role: document.getElementById('emp-role').value,
+                reg: document.getElementById('emp-reg').value
+            };
+            window.cloudSave('employees', id, data);
+            window.closeModal('modal-employee');
+        };
+
+        // Importação Inteligente de Excel (Radar)
+        window.handleExcelImport = function(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            showToast('Analisando planilha...', 'success');
-
+            window.showLoading("Lendo Planilha...");
             const reader = new FileReader();
+            
             reader.onload = async function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, {type: 'array'});
-                    
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    
-                    // Lê a planilha como uma matriz (array de arrays) para podermos pular linhas em branco/cabeçalhos
-                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                    
-                    if (rows.length === 0) {
-                        return showToast('A planilha está vazia.', 'error');
-                    }
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    // Converte pra matriz (array de arrays) para podermos varrer
+                    const rows = XLSX.utils.sheet_to_json(firstSheet, {header: 1}); 
 
                     let headerRowIndex = -1;
-                    let nameColIdx = -1;
-                    let roleColIdx = -1;
-                    let regColIdx = -1;
+                    let colMap = { name: -1, role: -1, reg: -1 };
 
-                    // 1. Procurar a linha de cabeçalho nas primeiras 30 linhas
+                    // Procura o cabeçalho real nas primeiras 30 linhas
                     for (let i = 0; i < Math.min(rows.length, 30); i++) {
-                        const row = rows[i];
-                        if (!row) continue;
+                        if (!rows[i]) continue;
                         
-                        for (let j = 0; j < row.length; j++) {
-                            if (typeof row[j] === 'string') {
-                                const val = row[j].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                                if (val === 'nome' || val === 'funcionario' || val === 'colaborador' || val === 'nome completo') nameColIdx = j;
-                                if (val === 'cargo' || val === 'funcao') roleColIdx = j;
-                                if (val === 'matricula' || val === 'chapa' || val === 'registro') regColIdx = j;
+                        let foundName = false;
+                        for (let j = 0; j < rows[i].length; j++) {
+                            const cellValue = String(rows[i][j] || '').trim().toLowerCase();
+                            // Normaliza removendo acentos
+                            const cleanValue = cellValue.normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+
+                            if (cleanValue.includes('nome') || cleanValue.includes('funcionario') || cleanValue.includes('colaborador')) {
+                                colMap.name = j;
+                                foundName = true;
+                            } else if (cleanValue.includes('cargo') || cleanValue.includes('funcao')) {
+                                colMap.role = j;
+                            } else if (cleanValue.includes('matricula') || cleanValue.includes('chapa')) {
+                                colMap.reg = j;
                             }
                         }
-
-                        // Se encontrou a coluna de nome, achou o cabeçalho!
-                        if (nameColIdx !== -1) {
+                        
+                        if (foundName) {
                             headerRowIndex = i;
                             break;
                         }
                     }
 
-                    if (headerRowIndex === -1 || nameColIdx === -1) {
-                        return showToast('Não encontrei a coluna "Nome" ou "Funcionário" no arquivo.', 'error');
+                    if (headerRowIndex === -1 || colMap.name === -1) {
+                        window.showToast("Erro: Não achei a coluna 'Nome' ou 'Funcionário'.", "error");
+                        window.hideLoading();
+                        return;
                     }
 
-                    let count = 0;
-                    const newEmployees = [];
-
-                    // 2. Extrair os dados a partir da linha seguinte ao cabeçalho
+                    let importados = 0;
+                    // Começa a ler da linha abaixo do cabeçalho
                     for (let i = headerRowIndex + 1; i < rows.length; i++) {
                         const row = rows[i];
-                        if (!row || row.length === 0) continue; // Pula linhas totalmente em branco
+                        if (!row || !row[colMap.name]) continue; // Pula linha vazia
 
-                        const name = row[nameColIdx];
+                        const nameVal = String(row[colMap.name]).trim();
+                        if (nameVal === '') continue;
+
+                        const roleVal = colMap.role > -1 && row[colMap.role] ? String(row[colMap.role]).trim() : 'Colaborador';
+                        const regVal = colMap.reg > -1 && row[colMap.reg] ? String(row[colMap.reg]).trim() : `GER-${Date.now() + i}`;
+
+                        const empData = {
+                            id: `emp_${Date.now()}_${i}`,
+                            name: nameVal,
+                            role: roleVal,
+                            reg: regVal
+                        };
                         
-                        // Só adiciona se tiver um nome válido
-                        if (name && String(name).trim() !== '') {
-                            const role = (roleColIdx !== -1 && row[roleColIdx]) ? row[roleColIdx] : 'Não Definido';
-                            const reg = (regColIdx !== -1 && row[regColIdx]) ? row[regColIdx] : '-';
+                        await window.cloudSave('employees', empData.id, empData);
+                        importados++;
+                    }
 
-                            const newEmp = {
-                                id: Date.now().toString() + count,
-                                name: String(name).trim(),
-                                role: String(role).trim(),
-                                reg: String(reg).trim()
-                            };
-                            appData.employees.push(newEmp);
-                            newEmployees.push(newEmp);
-                            count++;
-                        }
-                    }
-                    
-                    if (count > 0) {
-                        await saveToCloud('BATCH_ADD_EMPLOYEES', newEmployees);
-                        updateUI();
-                        showToast(`${count} colaboradores importados com sucesso!`, 'success');
-                    } else {
-                        showToast('Nenhum colaborador válido encontrado abaixo do cabeçalho.', 'error');
-                    }
+                    window.showToast(`${importados} colaboradores importados!`, "success");
+                    document.getElementById('excel-file-input').value = ''; // reseta
                 } catch (error) {
-                    console.error("Erro ao importar", error);
-                    showToast('Erro ao ler a planilha. Tente salvar como XLSX.', 'error');
+                    console.error(error);
+                    window.showToast("Erro ao ler o arquivo Excel.", "error");
                 }
+                window.hideLoading();
             };
-            
             reader.readAsArrayBuffer(file);
-            event.target.value = ''; // Limpa o input para permitir enviar o mesmo arquivo de novo se errar
-        }
-
-        function renderEmployees() {
-            const grid = document.getElementById('employees-grid');
-            grid.innerHTML = '';
-            
-            if(appData.employees.length === 0) {
-                grid.innerHTML = `<div class="col-span-full text-center py-8 text-gray-500">Nenhum colaborador cadastrado.</div>`;
-                return;
-            }
-
-            appData.employees.forEach(emp => {
-                grid.innerHTML += `
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow relative">
-                        <div class="absolute top-2 right-2 flex gap-1">
-                            <button onclick="editEmployee('${emp.id}')" class="text-gray-400 hover:text-blue-600 p-2 transition-colors" title="Editar">
-                                <i class="fa-solid fa-pen text-sm"></i>
-                            </button>
-                            <button onclick="confirmDeleteEmployee('${emp.id}')" class="text-gray-400 hover:text-red-600 p-2 transition-colors" title="Excluir">
-                                <i class="fa-solid fa-trash text-sm"></i>
-                            </button>
-                        </div>
-                        <div class="flex items-center gap-4 mt-1">
-                            <div class="w-12 h-12 bg-brand-blue/10 rounded-full flex items-center justify-center text-brand-blue font-bold text-xl shrink-0">
-                                ${emp.name.charAt(0)}
-                            </div>
-                            <div class="pr-10">
-                                <h4 class="font-semibold text-gray-800 leading-tight">${emp.name}</h4>
-                                <p class="text-sm text-gray-500 mt-0.5">${emp.role} • Mat: ${emp.reg}</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            // Atualizar select no modal de autorização
-            const select = document.getElementById('auth-employee');
-            select.innerHTML = '<option value="" disabled selected>Selecione o colaborador...</option>';
-            appData.employees.forEach(emp => {
-                select.innerHTML += `<option value="${emp.id}">${emp.name}</option>`;
-            });
-        }
-
-        // === AUTORIZAÇÕES DE HE ===
-
-        function openNewAuthModal() {
-            document.getElementById('auth-form').reset();
-            document.getElementById('auth-id').value = '';
-            document.getElementById('modal-auth-title').innerText = 'Registrar Horas Extras';
-            document.querySelector('input[name="auth-status"][value="PENDING"]').checked = true;
-            openModal('auth-modal');
-        }
-
-        function editAuth(authId) {
-            const auth = appData.authorizations.find(a => a.id === authId);
-            if (!auth) return;
-            
-            document.getElementById('auth-id').value = auth.id;
-            document.getElementById('auth-employee').value = auth.employeeId;
-            document.getElementById('auth-date').value = auth.date;
-            document.getElementById('auth-hours').value = auth.hours;
-            document.getElementById('auth-reason').value = auth.reason;
-            document.getElementById('auth-description').value = auth.description;
-            document.querySelector(`input[name="auth-status"][value="${auth.status}"]`).checked = true;
-            
-            document.getElementById('modal-auth-title').innerText = 'Editar Autorização';
-            openModal('auth-modal');
-        }
-
-        document.getElementById('auth-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const empId = document.getElementById('auth-employee').value;
-            const emp = appData.employees.find(e => e.id === empId);
-            const authId = document.getElementById('auth-id').value;
-            
-            const authData = {
-                employeeId: emp.id,
-                employeeName: emp.name,
-                date: document.getElementById('auth-date').value,
-                hours: parseFloat(document.getElementById('auth-hours').value),
-                reason: document.getElementById('auth-reason').value,
-                description: document.getElementById('auth-description').value,
-                status: document.querySelector('input[name="auth-status"]:checked').value
-            };
-            
-            if (authId) {
-                // UPDATE (Edição)
-                const index = appData.authorizations.findIndex(a => a.id === authId);
-                if(index !== -1) {
-                    authData.id = authId; // Mantém ID original
-                    authData.createdAt = appData.authorizations[index].createdAt; // Mantém data de criação original
-                    appData.authorizations[index] = authData;
-                    await saveToCloud('UPDATE_AUTH', authData);
-                    showToast('Autorização atualizada!');
-                }
-            } else {
-                // CREATE (Novo Cadastro)
-                authData.id = Date.now().toString();
-                authData.createdAt = new Date().toISOString();
-                appData.authorizations.unshift(authData);
-                await saveToCloud('ADD_AUTH', authData);
-                showToast('Autorização registrada!');
-            }
-            
-            closeModal('auth-modal');
-            e.target.reset();
-            updateUI();
-        });
-
-        function changeAuthStatus(authId, newStatus) {
-            const auth = appData.authorizations.find(a => a.id === authId);
-            if(auth) {
-                auth.status = newStatus;
-                saveToCloud('UPDATE_AUTH_STATUS', { id: authId, status: newStatus });
-                updateUI();
-                showToast(`Status alterado para ${STATUS_CONFIG[newStatus].label}`);
-            }
-        }
-
-        function getFilteredAuths() {
-            const filterMonth = document.getElementById('global-month-filter').value;
-            const filterStatusEl = document.getElementById('filter-status');
-            const filterStatus = filterStatusEl ? filterStatusEl.value : 'ALL';
-            
-            return appData.authorizations.filter(auth => {
-                const matchMonth = filterMonth === '' || auth.date.startsWith(filterMonth);
-                const matchStatus = filterStatus === 'ALL' || auth.status === filterStatus;
-                return matchMonth && matchStatus;
-            });
-        }
-
-        function renderAuthorizationsTable() {
-            const tbody = document.getElementById('auth-table-body');
-            tbody.innerHTML = '';
-            
-            const filteredAuths = getFilteredAuths();
-
-            if(filteredAuths.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Nenhum registro encontrado neste mês/status.</td></tr>`;
-                return;
-            }
-
-            filteredAuths.forEach(auth => {
-                const conf = STATUS_CONFIG[auth.status];
-                const dateObj = new Date(auth.date + 'T12:00:00'); // Compensar timezone locale
-                const formattedDate = dateObj.toLocaleDateString('pt-BR');
-                
-                tbody.innerHTML += `
-                    <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="px-6 py-4">
-                            <div class="font-medium text-gray-900">${auth.employeeName}</div>
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="text-gray-900">${formattedDate}</div>
-                            <div class="text-xs text-gray-500 truncate max-w-[200px]" title="${auth.description}">${auth.reason}</div>
-                        </td>
-                        <td class="px-6 py-4 font-semibold text-brand-blue">${auth.hours}h</td>
-                        <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${conf.class}">
-                                <i class="fa-solid ${conf.icon} mr-1.5"></i> ${conf.label}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-right whitespace-nowrap">
-                            <button onclick="editAuth('${auth.id}')" class="text-blue-600 hover:bg-blue-100 p-2 rounded-lg transition-colors mr-1" title="Editar">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            ${auth.status === 'PENDING' ? `
-                                <button onclick="changeAuthStatus('${auth.id}', 'APPROVED')" class="text-green-600 hover:bg-green-100 p-2 rounded-lg transition-colors" title="Aprovar">
-                                    <i class="fa-solid fa-check"></i>
-                                </button>
-                                <button onclick="changeAuthStatus('${auth.id}', 'REJECTED')" class="text-red-600 hover:bg-red-100 p-2 rounded-lg transition-colors ml-1" title="Rejeitar">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
-                            ` : `
-                                <button onclick="changeAuthStatus('${auth.id}', 'PENDING')" class="text-gray-400 hover:bg-gray-100 p-2 rounded-lg transition-colors" title="Reverter para Pendente">
-                                    <i class="fa-solid fa-rotate-left"></i>
-                                </button>
-                            `}
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        // === EXPORTAÇÃO ===
-
-        function exportExcel() {
-            const data = getFilteredAuths().map(auth => ({
-                'Colaborador': auth.employeeName,
-                'Data': new Date(auth.date + 'T12:00:00').toLocaleDateString('pt-BR'),
-                'Qtd Horas': auth.hours,
-                'Motivo': auth.reason,
-                'Descrição': auth.description,
-                'Status': STATUS_CONFIG[auth.status].label
-            }));
-            
-            if(data.length === 0) return showToast('Nenhum dado para exportar', 'error');
-
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Horas Extras");
-            const monthStr = document.getElementById('global-month-filter').value || 'Todas';
-            XLSX.writeFile(wb, `Relatorio_HE_${monthStr}.xlsx`);
-        }
-
-        function exportPDF() {
-            const data = getFilteredAuths();
-            if(data.length === 0) return showToast('Nenhum dado para exportar', 'error');
-
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const monthStr = document.getElementById('global-month-filter').value || 'Todas';
-
-            doc.setFontSize(16);
-            doc.text(`Relatorio de Horas Extras - ${monthStr}`, 14, 20);
-
-            const tableColumn = ["Colaborador", "Data", "Horas", "Motivo", "Status"];
-            const tableRows = [];
-
-            data.forEach(auth => {
-                tableRows.push([
-                    auth.employeeName,
-                    new Date(auth.date + 'T12:00:00').toLocaleDateString('pt-BR'),
-                    auth.hours + 'h',
-                    auth.reason,
-                    STATUS_CONFIG[auth.status].label
-                ]);
-            });
-
-            doc.autoTable({
-                head: [tableColumn],
-                body: tableRows,
-                startY: 30,
-                theme: 'striped',
-                styles: { fontSize: 9 },
-                headStyles: { fillColor: [10, 37, 64] } // Azul corporativo
-            });
-
-            doc.save(`Relatorio_HE_${monthStr}.pdf`);
-        }
-
-        // === DASHBOARD E RENDER GERAL ===
-
-        function updateDashboardStats() {
-            let totalHours = 0;
-            let pending = 0;
-            let approved = 0;
-
-            const recentTbody = document.getElementById('recent-table-body');
-            recentTbody.innerHTML = '';
-
-            const filterMonth = document.getElementById('global-month-filter').value;
-            
-            // Dashboard filtra por mês (ignorando o filtro de status da outra página)
-            const dashboardData = appData.authorizations.filter(auth => {
-                return filterMonth === '' || auth.date.startsWith(filterMonth);
-            });
-
-            const recent = dashboardData.slice(0, 5);
-
-            dashboardData.forEach(auth => {
-                if(auth.status === 'APPROVED') {
-                    approved++;
-                    totalHours += auth.hours;
-                } else if(auth.status === 'PENDING') {
-                    pending++;
-                }
-            });
-
-            document.getElementById('stat-total-hours').innerText = totalHours;
-            document.getElementById('stat-pending').innerText = pending;
-            document.getElementById('stat-approved').innerText = approved;
-
-            if(recent.length === 0) {
-                recentTbody.innerHTML = `<tr><td colspan="4" class="px-6 py-6 text-center text-gray-500">Sem atividade no mês selecionado.</td></tr>`;
-            } else {
-                recent.forEach(auth => {
-                    const conf = STATUS_CONFIG[auth.status];
-                    const formattedDate = new Date(auth.date + 'T12:00:00').toLocaleDateString('pt-BR');
-                    recentTbody.innerHTML += `
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-6 py-3 text-gray-900">${auth.employeeName}</td>
-                            <td class="px-6 py-3 text-gray-500">${formattedDate}</td>
-                            <td class="px-6 py-3 font-semibold">${auth.hours}h</td>
-                            <td class="px-6 py-3">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${conf.class.replace('border', '')}">
-                                    ${conf.label}
-                                </span>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
-        }
-
-        function updateUI() {
-            renderEmployees();
-            renderAuthorizationsTable();
-            updateDashboardStats();
-        }
-
-        // Init
-        window.onload = () => {
-            // Inicializa o filtro com o mês e ano atual
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            document.getElementById('global-month-filter').value = `${year}-${month}`;
-
-            loadData();
-            navigate('dashboard');
         };
 
+        // Render Motivos
+        window.renderReasons = function() {
+            const tbody = document.getElementById('reasons-table-body');
+            tbody.innerHTML = '';
+            
+            if(window.appData.reasons.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="p-8 text-center text-slate-500">Nenhum motivo cadastrado.</td></tr>';
+                return;
+            }
+
+            window.appData.reasons.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">${r.name}</td>
+                    <td class="p-4 text-right">
+                        <button onclick="confirmDelete('reasons', '${r.id}')" class="text-red-500 hover:bg-red-50 p-2 rounded"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        };
+
+        window.openReasonModal = function() {
+            document.getElementById('reason-form').reset();
+            document.getElementById('reason-id').value = '';
+            document.getElementById('modal-reason').classList.add('active');
+        };
+
+        window.saveReason = function(e) {
+            e.preventDefault();
+            const id = document.getElementById('reason-id').value || `reason_${Date.now()}`;
+            const data = {
+                id: id,
+                name: document.getElementById('reason-name').value
+            };
+            window.cloudSave('reasons', id, data);
+            window.closeModal('modal-reason');
+        };
+
+        // Render Acessos
+        window.renderAccess = function() {
+            const tbody = document.getElementById('access-table-body');
+            tbody.innerHTML = '';
+            
+            window.appData.system_users.forEach(u => {
+                const isMaster = u.id === 'master';
+                const roleBadge = u.role === 'ADMIN' ? 
+                    '<span class="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-bold">Gestor</span>' : 
+                    '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">Líder</span>';
+                
+                const deleteBtn = isMaster ? '' : `<button onclick="confirmDelete('system_users', '${u.id}')" class="text-red-500 hover:bg-red-50 p-2 rounded"><i class="fa-solid fa-trash"></i></button>`;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">
+                        ${u.name} ${isMaster ? '<span class="text-xs text-slate-400 ml-1">(Mestre)</span>' : ''}
+                    </td>
+                    <td class="p-4">${u.username}</td>
+                    <td class="p-4">${roleBadge}</td>
+                    <td class="p-4 text-right">
+                        ${isMaster ? '' : `<button onclick="editAccess('${u.id}')" class="text-blue-500 hover:bg-blue-50 p-2 rounded"><i class="fa-solid fa-pen"></i></button>`}
+                        ${deleteBtn}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        };
+
+        window.openAccessModal = function() {
+            document.getElementById('access-form').reset();
+            document.getElementById('access-id').value = '';
+            document.getElementById('access-modal-title').textContent = 'Novo Acesso';
+            document.getElementById('modal-access').classList.add('active');
+        };
+
+        window.editAccess = function(id) {
+            window.openAccessModal();
+            const u = window.appData.system_users.find(x => x.id === id);
+            if(u) {
+                document.getElementById('access-modal-title').textContent = 'Editar Acesso';
+                document.getElementById('access-id').value = u.id;
+                document.getElementById('access-name').value = u.name;
+                document.getElementById('access-username').value = u.username;
+                document.getElementById('access-password').value = u.password;
+                document.getElementById('access-role').value = u.role;
+            }
+        };
+
+        window.saveAccess = function(e) {
+            e.preventDefault();
+            const id = document.getElementById('access-id').value || `user_${Date.now()}`;
+            const data = {
+                id: id,
+                name: document.getElementById('access-name').value,
+                username: document.getElementById('access-username').value,
+                password: document.getElementById('access-password').value,
+                role: document.getElementById('access-role').value
+            };
+            window.cloudSave('system_users', id, data);
+            window.closeModal('modal-access');
+        };
+
+        // Exclusão Compartilhada
+        window.currentDeleteInfo = null;
+        window.confirmDelete = function(colName, id) {
+            window.currentDeleteInfo = { colName, id };
+            document.getElementById('modal-confirm').classList.add('active');
+        };
+
+        document.getElementById('btn-confirm-delete').addEventListener('click', () => {
+            if(window.currentDeleteInfo) {
+                window.cloudDelete(window.currentDeleteInfo.colName, window.currentDeleteInfo.id);
+                window.closeModal('modal-confirm');
+                window.currentDeleteInfo = null;
+            }
+        });
+
+        // Utils
+        window.closeModal = function(id) {
+            document.getElementById(id).classList.remove('active');
+        };
+
+        window.formatDate = function(dateString) {
+            if(!dateString) return '';
+            const [y, m, d] = dateString.split('-');
+            return `${d}/${m}/${y}`;
+        };
+
+        // Loading
+        window.showLoading = function(text = "Carregando...") {
+            document.getElementById('loading-text').textContent = text;
+            document.getElementById('global-loading').classList.remove('hidden');
+        };
+        window.hideLoading = function() {
+            document.getElementById('global-loading').classList.add('hidden');
+        };
+
+        // Toast
+        window.showToast = function(msg, type="success") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-yellow-500';
+            const icon = type === 'success' ? 'fa-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-circle-exclamation';
+            
+            toast.className = `${colors} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transform transition-all translate-y-10 opacity-0`;
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${msg}</span>`;
+            
+            container.appendChild(toast);
+            
+            // Anim In
+            setTimeout(() => { toast.classList.remove('translate-y-10', 'opacity-0'); }, 10);
+            
+            // Anim Out
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        // Exportação
+        window.exportToExcel = function() {
+            const table = document.querySelector('#auth-print-area table');
+            // Clona para remover a coluna de ações
+            const clone = table.cloneNode(true);
+            clone.querySelectorAll('.no-print').forEach(el => el.remove());
+            
+            const wb = XLSX.utils.table_to_book(clone, {sheet: "Autorizacoes"});
+            const month = document.getElementById('global-month-filter').value;
+            XLSX.writeFile(wb, `HE_${month}.xlsx`);
+        };
+
+        window.exportToPDF = function() {
+            window.showLoading("Gerando PDF...");
+            const element = document.getElementById('auth-print-area');
+            const month = document.getElementById('global-month-filter').value;
+            
+            // Força estilos de impressão na tela temporariamente
+            element.classList.add('print-mode');
+            
+            const opt = {
+                margin:       10,
+                filename:     `HE_${month}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.classList.remove('print-mode');
+                window.hideLoading();
+            });
+        };
     </script>
+    <style>
+        /* Estilos específicos para o PDF */
+        .print-mode .no-print { display: none !important; }
+        .print-mode .print-only { display: block !important; }
+    </style>
 </body>
 </html>
